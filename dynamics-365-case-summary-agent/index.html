@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Case Summary Assistant | Dynamics 365 learning demo</title>
+  <style>
+    :root { color-scheme: light; --ink:#182230; --muted:#566579; --blue:#1769aa; --line:#d8e0e8; --wash:#f3f7fb; --green:#087443; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--wash); color:var(--ink); font:16px/1.5 "Segoe UI",Arial,sans-serif; }
+    header { background:#123b5d; color:white; padding:28px max(24px,calc((100vw - 1050px)/2)); }
+    header p { margin:4px 0 0; color:#d4e6f3; }
+    main { max-width:1050px; margin:28px auto; padding:0 20px 40px; }
+    .notice { padding:13px 16px; border-left:4px solid #e4a11b; background:#fff8e8; border-radius:4px; margin-bottom:20px; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    section { background:white; padding:22px; border:1px solid var(--line); border-radius:10px; box-shadow:0 2px 8px #18334a0a; }
+    h1 { margin:0; font-size:26px; } h2 { margin:0 0 14px; font-size:19px; }
+    label { display:block; font-weight:600; margin:14px 0 6px; }
+    input,textarea { width:100%; padding:11px 12px; border:1px solid #9eabb9; border-radius:6px; font:inherit; color:var(--ink); }
+    textarea { min-height:225px; resize:vertical; }
+    .buttons { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+    button { border:0; border-radius:6px; padding:10px 15px; font:600 15px inherit; cursor:pointer; }
+    .primary { background:var(--blue); color:white; } .secondary { background:#eaf2f8; color:#164568; }
+    button:focus-visible,input:focus-visible,textarea:focus-visible { outline:3px solid #f4bf43; outline-offset:2px; }
+    .empty { color:var(--muted); }
+    .result h3 { margin:17px 0 5px; font-size:15px; color:#164568; }
+    .result p,.result ul { margin:4px 0 10px; } .result ul { padding-left:22px; }
+    .badge { display:inline-block; color:var(--green); background:#e8f6ef; padding:3px 9px; border-radius:12px; font-size:13px; font-weight:600; }
+    footer { color:var(--muted); font-size:14px; margin-top:16px; }
+    @media(max-width:720px){.grid{grid-template-columns:1fr} header{padding:24px}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Case Summary Assistant</h1>
+    <p>A read-only learning demo for Dynamics 365 Customer Service</p>
+  </header>
+  <main>
+    <div class="notice"><strong>Learning prototype:</strong> this demo uses simple text rules, not an AI model. It does not connect to Dynamics 365, save data, or send anything.</div>
+    <div class="grid">
+      <section aria-labelledby="input-title">
+        <h2 id="input-title">1. Provide case information</h2>
+        <label for="caseTitle">Case title</label>
+        <input id="caseTitle" value="Online order shows delivered but has not arrived">
+        <label for="caseText">Case notes / description</label>
+        <textarea id="caseText">Customer: Northwind Traders
+Opened: 3 October 2026
+Priority: High
+
+Customer reports that order 84721 is marked delivered, but the parcel was not received. They checked with reception and nearby offices. This is the second time this month an order has gone missing. Customer needs the replacement before a scheduled event on 8 October. No carrier investigation has been opened yet.</textarea>
+        <div class="buttons">
+          <button class="primary" id="summarize">Summarize case</button>
+          <button class="secondary" id="sample">Use sample case</button>
+          <button class="secondary" id="clear">Clear</button>
+        </div>
+      </section>
+      <section aria-labelledby="result-title" aria-live="polite">
+        <h2 id="result-title">2. Representative review</h2>
+        <div id="result" class="empty">Add case information and choose <strong>Summarize case</strong> to see a structured draft.</div>
+      </section>
+    </div>
+    <footer>Use fictional information in this demo. A real agent should use approved data access and keep a person in control of CRM updates.</footer>
+  </main>
+  <script>
+    const sampleTitle = 'Online order shows delivered but has not arrived';
+    const sampleText = document.getElementById('caseText').value;
+    const esc = (value) => value.replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    const splitFacts = text => text.split(/\n|(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+    function summarize() {
+      const title = document.getElementById('caseTitle').value.trim();
+      const text = document.getElementById('caseText').value.trim();
+      const result = document.getElementById('result');
+      if (!title && !text) { result.className='empty'; result.textContent='Please enter a case title or some case notes first.'; return; }
+      const lines = splitFacts(text);
+      const known = lines.filter(s => /customer:|opened:|priority:|order|reports|checked|second time|needs|scheduled|investigation/i.test(s)).slice(0,6);
+      const unknowns = [];
+      if (!/carrier investigation.{0,30}(opened|started|created)/i.test(text)) unknowns.push('Carrier investigation status or reference is not confirmed.');
+      if (!/replacement.{0,30}(approved|shipped|sent)/i.test(text)) unknowns.push('Whether a replacement has been approved or sent is not stated.');
+      const steps = ['Confirm the customer’s preferred resolution and the event deadline.', 'Review delivery evidence and open or check a carrier investigation.', 'Check replacement policy and update the customer after a representative verifies the facts.'];
+      const summary = title ? `The customer reports: ${title.toLowerCase()}.` : 'Case notes were provided without a title.';
+      result.className='result';
+      result.innerHTML = `<span class="badge">Draft for human review</span>
+        <h3>Summary</h3><p>${esc(summary)}</p>
+        <h3>Known information</h3>${known.length ? `<ul>${known.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>` : '<p>No clear case facts were identified in the supplied text.</p>'}
+        <h3>Unknowns to verify</h3>${unknowns.length ? `<ul>${unknowns.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>` : '<p>No obvious missing details detected by this basic demo.</p>'}
+        <h3>Suggested next steps</h3><ul>${steps.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+        <footer>Generated with simple local rules. Suggestions are not actions taken.</footer>`;
+    }
+    document.getElementById('summarize').addEventListener('click', summarize);
+    document.getElementById('sample').addEventListener('click', () => { document.getElementById('caseTitle').value=sampleTitle; document.getElementById('caseText').value=sampleText; });
+    document.getElementById('clear').addEventListener('click', () => { document.getElementById('caseTitle').value=''; document.getElementById('caseText').value=''; document.getElementById('result').className='empty'; document.getElementById('result').textContent='Add case information and choose Summarize case to see a structured draft.'; });
+  </script>
+</body>
+</html>
+
